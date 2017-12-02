@@ -9,7 +9,8 @@ fn main() {
 
 fn run() -> Result<(), std::num::ParseIntError> {
     let spreadsheet = read_spreadsheet(include_str!("puzzle_input.txt"))?;
-    println!("Checksum is {}", checksum(spreadsheet));
+    println!("Checksum 1 is {}", checksum1(&spreadsheet));
+    println!("Checksum 2 is {}", checksum2(&spreadsheet));
 
     Ok(())
 }
