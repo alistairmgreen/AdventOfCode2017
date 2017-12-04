@@ -1,32 +1,37 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 fn main() {
     let passphrases = include_str!("puzzle_input.txt");
-    let passphrases_without_duplicates: Vec<&str> = passphrases.lines()
-        .filter(|&passphrase| no_repeated_words(passphrase))
+    let passphrases_without_duplicates: Vec<Vec<&str>> = passphrases
+        .lines()
+        .map(|line| line.split_whitespace().collect::<Vec<&str>>())
+        .filter(|passphrase| !contains_duplicate_words(passphrase))
         .collect();
-    
-    println!("There are {} passphrases with no repeated words.", passphrases_without_duplicates.len());
+
+    println!(
+        "There are {} passphrases with no repeated words.",
+        passphrases_without_duplicates.len()
+    );
 
     let valid_count = passphrases_without_duplicates
         .iter()
-        .filter(|passphrase| !contains_anagrams(&passphrase))
+        .filter(|&passphrase| !contains_anagrams(passphrase))
         .count();
 
-    println!("There are {} passphrases with no anagrams.", valid_count);        
+    println!("There are {} passphrases with no anagrams.", valid_count);
 }
 
-fn no_repeated_words(passphrase: &str) -> bool {
+fn contains_duplicate_words(passphrase: &[&str]) -> bool {
     let mut words: HashSet<&str> = HashSet::new();
 
-    for word in passphrase.split_whitespace() {
+    for word in passphrase {
         if words.contains(word) {
-            return false;
+            return true;
         }
 
         words.insert(word);
     }
 
-    true
+    false
 }
 
 fn count_letters(word: &str) -> HashMap<char, u32> {
@@ -43,10 +48,9 @@ fn is_anagram(word1: &str, word2: &str) -> bool {
     count_letters(word1) == count_letters(word2)
 }
 
-fn contains_anagrams(passphrase: &str) -> bool {
-    let words: Vec<&str> = passphrase.split_whitespace().collect();
-    for &word in words.iter() {
-        if words.iter().any(|&word2| word != word2 && is_anagram(word, word2)) {
+fn contains_anagrams(passphrase: &[&str]) -> bool {
+    for word in passphrase {
+        if passphrase.iter().any(|word2| word != word2 && is_anagram(word, word2)) {
             return true;
         }
     }
@@ -59,14 +63,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn passphrase_with_no_repeated_words_is_valid() {
-        assert!(no_repeated_words("aa bb cc dd ee"));
-        assert!(no_repeated_words("aa bb cc dd aaa"));        
+    fn contains_duplicate_words_negative_case() {
+        assert!(!contains_duplicate_words(&["aa", "bb", "cc", "dd", "ee"]));
+        assert!(!contains_duplicate_words(&["aa", "bb", "cc", "dd", "aaa"]));
     }
 
     #[test]
-    fn passphrase_with_repeated_word_is_invalid() {
-        assert!(!no_repeated_words("aa bb cc dd aa"));
+    fn contains_duplicate_words_positive_case() {
+        assert!(contains_duplicate_words(&["aa", "bb", "cc", "dd", "aa"]));
     }
 
     #[test]
@@ -90,14 +94,14 @@ mod tests {
 
     #[test]
     fn contains_anagrams_positive_case() {
-        assert!(contains_anagrams("abcde xyz ecdab"));
-        assert!(contains_anagrams("oiii ioii iioi iiio"));
+        assert!(contains_anagrams(&["abcde", "xyz", "ecdab"]));
+        assert!(contains_anagrams(&["oiii", "ioii", "iioi", "iiio"]));
     }
 
     #[test]
     fn contains_anagrams_negative_case() {
-        assert!(!contains_anagrams("abcde fghij"));
-        assert!(!contains_anagrams("a ab abc abd abf abj"));
-        assert!(!contains_anagrams("iiii oiii ooii oooi oooo"));
+        assert!(!contains_anagrams(&["abcde", "fghij"]));
+        assert!(!contains_anagrams(&["a", "ab", "abc", "abd", "abf", "abj"]));
+        assert!(!contains_anagrams(&["iiii", "oiii", "ooii", "oooi", "oooo"]));
     }
 }
