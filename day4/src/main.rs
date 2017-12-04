@@ -1,9 +1,16 @@
 use std::collections::{HashMap, HashSet};
+extern crate rayon;
+use rayon::prelude::*;
+
 fn main() {
-    let passphrases = include_str!("puzzle_input.txt");
-    let passphrases_without_duplicates: Vec<Vec<&str>> = passphrases
+    let input = include_str!("puzzle_input.txt");
+    let passphrases: Vec<Vec<&str>> = input
         .lines()
         .map(|line| line.split_whitespace().collect::<Vec<&str>>())
+        .collect();
+    
+    let passphrases_without_duplicates: Vec<&Vec<&str>> = passphrases
+        .par_iter()
         .filter(|passphrase| !contains_duplicate_words(passphrase))
         .collect();
 
@@ -13,7 +20,7 @@ fn main() {
     );
 
     let valid_count = passphrases_without_duplicates
-        .iter()
+        .par_iter()
         .filter(|&passphrase| !contains_anagrams(passphrase))
         .count();
 
@@ -50,7 +57,7 @@ fn is_anagram(word1: &str, word2: &str) -> bool {
 
 fn contains_anagrams(passphrase: &[&str]) -> bool {
     for word in passphrase {
-        if passphrase.iter().any(|word2| word != word2 && is_anagram(word, word2)) {
+        if passphrase.par_iter().any(|word2| word != word2 && is_anagram(word, word2)) {
             return true;
         }
     }
