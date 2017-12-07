@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate failure;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::str::FromStr;
 use failure::Error;
 
@@ -52,9 +52,9 @@ impl FromStr for Program {
     }
 }
 
-pub fn find_root<'a>(programs: &'a [Program]) -> &'a Program {
+pub fn find_root<'a>(programs: &'a HashMap<String, Program>) -> &'a Program {
     let programs_with_children: Vec<&Program> = programs
-        .iter()
+        .values()
         .filter(|&p| !p.children.is_empty())
         .collect();
 
@@ -75,7 +75,7 @@ pub fn find_root<'a>(programs: &'a [Program]) -> &'a Program {
 mod tests {
     use super::*;
 
-    fn example_data() -> Vec<Program> {
+    fn example_data() -> HashMap<String, Program> {
         vec![
             Program::new("pbga", 66),
             Program::new("xhth", 57),
@@ -90,7 +90,9 @@ mod tests {
             Program::with_children("ugml", 68, &["gyxo", "ebii", "jptl"]),
             Program::new("gyxo", 61),
             Program::new("cntj", 57),
-        ]
+        ].into_iter()
+        .map(|p| (p.name.clone(), p))
+        .collect()
     }
 
     #[test]
