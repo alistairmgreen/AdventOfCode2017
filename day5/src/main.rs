@@ -1,4 +1,7 @@
+extern crate stopwatch;
+
 use std::num::ParseIntError;
+use stopwatch::Stopwatch;
 
 fn main() {
     let puzzle_input = include_str!("puzzle_input.txt")
@@ -7,15 +10,16 @@ fn main() {
         .collect::<Result<Vec<i32>, ParseIntError>>()
         .unwrap();
 
-    println!(
-        "For part 1 rules, it takes {} jumps to escape the maze.",
-        maze_part_1(&mut puzzle_input.clone())
-    );
+    let mut stopwatch = Stopwatch::start_new();
+    let part1 = maze_part_1(&mut puzzle_input.clone());
+    let part2 = maze_part_2(&mut puzzle_input.clone());
+    stopwatch.stop();
 
-    println!(
-        "For part 2 rules, it takes {} jumps to escape the maze.",
-        maze_part_2(&mut puzzle_input.clone())
-    );
+    println!("For part 1 rules, it takes {} jumps to escape the maze.", part1);
+
+    println!("For part 2 rules, it takes {} jumps to escape the maze.", part2);
+
+    println!("Elapsed time: {}", stopwatch);
 }
 
 fn maze_part_1(offsets: &mut [i32]) -> usize {
