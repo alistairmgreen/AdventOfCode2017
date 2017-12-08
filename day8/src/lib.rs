@@ -18,7 +18,7 @@ impl FromStr for Operation {
         match s {
             "inc" => Ok(Operation::Increment),
             "dec" => Ok(Operation::Decrement),
-            _ => bail!("Unrecognized operator '{}'.", s)
+            _ => bail!("Unrecognized operator '{}'.", s),
         }
     }
 }
@@ -28,6 +28,26 @@ struct Instruction {
     register: String,
     operation: Operation,
     argument: i32,
+}
+
+impl FromStr for Instruction {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split_whitespace().collect();
+        if parts.len() < 3 {
+            bail!("{} is not a valid statement", s);
+        }
+
+        let operation = Operation::from_str(&parts[1])?;
+        let argument = i32::from_str(&parts[2])?;
+
+        Ok(Instruction {
+            register: parts[0].to_string(),
+            operation: operation,
+            argument: argument,
+        })
+    }
 }
 
 impl Instruction {
@@ -47,6 +67,24 @@ enum Comparison {
     NotEqual,
     GreaterOrEqual,
     Greater,
+}
+
+impl FromStr for Comparison {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let comparison = match s {
+            "<" => Comparison::Less,
+            "<=" => Comparison::LessOrEqual,
+            "==" => Comparison::Equal,
+            "!=" => Comparison::NotEqual,
+            ">=" => Comparison::GreaterOrEqual,
+            ">" => Comparison::Greater,
+            _ => bail!("Unrecognized operator '{}'.", s),
+        };
+
+        Ok(comparison)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -69,10 +107,49 @@ impl Condition {
     }
 }
 
+impl FromStr for Condition {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split_whitespace().collect();
+        if parts.len() < 3 {
+            bail!("{} is not a valid condition", s);
+        }
+
+        let comparison = Comparison::from_str(&parts[1])?;
+        let argument = i32::from_str(&parts[2])?;
+
+        Ok(Condition {
+            register: parts[0].to_string(),
+            comparison: comparison,
+            argument: argument,
+        })
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Statement {
     instruction: Instruction,
     condition: Condition,
+}
+
+impl FromStr for Statement {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split(" if ").collect();
+        if parts.len() < 2 {
+            bail!("{} is not a valid condition", s);
+        }
+
+        let instruction = Instruction::from_str(&parts[0])?;
+        let condition = Condition::from_str(&parts[1])?;
+
+        Ok(Statement {
+            instruction: instruction,
+            condition: condition,
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -219,5 +296,27 @@ mod tests {
     #[test]
     fn parse_operation_decrement() {
         assert_eq!("dec".parse::<Operation>().unwrap(), Operation::Decrement);
+    }
+
+    #[test]
+    fn parse_statement() {
+        let statement = Statement::from_str("c dec -10 if a >= 1").unwrap();
+        assert_eq!(
+            statement.instruction,
+            Instruction {
+                register: "c".to_string(),
+                operation: Operation::Decrement,
+                argument: -10,
+            }
+        );
+
+        assert_eq!(
+            statement.condition,
+            Condition {
+                register: "a".to_string(),
+                comparison: Comparison::GreaterOrEqual,
+                argument: 1
+            }
+        );
     }
 }
