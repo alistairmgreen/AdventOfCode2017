@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate failure;
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use failure::Error;
 
@@ -71,6 +71,38 @@ pub fn find_root<'a>(programs: &'a HashMap<String, Program>) -> &'a Program {
         .unwrap()
 }
 
+pub fn total_weight(program_name: &str, all_programs: &HashMap<String, Program>) -> u32 {
+    let program = &all_programs[program_name];
+
+    program.weight
+        + program
+            .children
+            .iter()
+            .map(|name| total_weight(name, &all_programs))
+            .sum::<u32>()
+}
+
+pub fn is_balanced(program_name: &str, all_programs: &HashMap<String, Program>) -> bool {
+    let program = &all_programs[program_name];
+    if program.children.is_empty() {
+        return true;
+    }
+
+    let child_weights: Vec<u32> = program
+        .children
+        .iter()
+        .map(|name| total_weight(name, &all_programs))
+        .collect();
+
+    for &weight in child_weights.iter() {
+        if weight != child_weights[0] {
+            return false;
+        }
+    }
+
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,8 +123,8 @@ mod tests {
             Program::new("gyxo", 61),
             Program::new("cntj", 57),
         ].into_iter()
-        .map(|p| (p.name.clone(), p))
-        .collect()
+            .map(|p| (p.name.clone(), p))
+            .collect()
     }
 
     #[test]
@@ -122,5 +154,30 @@ mod tests {
         let programs = example_data();
         let root = find_root(&programs);
         assert_eq!(root.name, "tknk".to_string());
+    }
+
+    #[test]
+    fn total_weight_is_weight_of_self_plus_all_children() {
+        let programs = example_data();
+        assert_eq!(total_weight("gyxo", &programs), 61);
+        assert_eq!(total_weight("ugml", &programs), 251);
+    }
+
+    #[test]
+    fn program_with_no_children_is_balanced() {
+        let programs = example_data();
+        assert!(is_balanced("gyxo", &programs));
+    }
+
+    #[test]
+    fn program_whose_children_have_equal_weights_is_balanced() {
+        let programs = example_data();
+        assert!(is_balanced("ugml", &programs));
+    }
+
+    #[test]
+    fn program_whose_children_have_different_weights_is_imbalanced() {
+        let programs = example_data();
+        assert!(!is_balanced("tknk", &programs));
     }
 }
