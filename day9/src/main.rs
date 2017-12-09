@@ -1,11 +1,13 @@
 fn main() {
     let puzzle_input = include_str!("puzzle_input.txt");
-    println!("Score for puzzle input is {}", score(puzzle_input));
+    let (without_garbage, characters_removed) = remove_garbage(puzzle_input);
+    println!("Score for puzzle input is {}", score(&without_garbage));
+    println!("{} garbage characters were removed.", characters_removed);
 }
 
-fn remove_garbage(input: &str) -> String {
+fn remove_garbage(input: &str) -> (String, usize) {
     let mut output = String::new();
-
+    let mut characters_removed: usize = 0;
     let mut in_garbage = false;
     let mut ignore_next = false;
 
@@ -17,20 +19,24 @@ fn remove_garbage(input: &str) -> String {
 
         match c {
             '!' => ignore_next = true,
-            '<' => in_garbage = true,
+            '<' if !in_garbage => in_garbage = true,
             '>' => in_garbage = false,
-            _  => if !in_garbage { output.push(c) }
+            _ => if in_garbage {
+                characters_removed += 1
+            } else {
+                output.push(c)
+            },
         }
     }
 
-    output
+    (output, characters_removed)
 }
 
 fn score(input: &str) -> usize {
     let mut bracket_depth: usize = 0;
     let mut score: usize = 0;
 
-    for c in remove_garbage(input).chars() {
+    for c in input.chars() {
         if c == '{' {
             bracket_depth += 1;
             score += bracket_depth;
@@ -50,12 +56,55 @@ mod tests {
 
     #[test]
     fn remove_garbage_removes_text_in_angle_brackets() {
-        assert_eq!(remove_garbage("{<a>,<a>,<a>,<a>}"), "{,,,}");
+        assert_eq!(remove_garbage("{<a>,<a>,<a>,<a>}"), ("{,,,}".to_string(), 4usize));
     }
 
     #[test]
     fn remove_garbage_ignores_character_after_exclamation_mark() {
-        assert_eq!(remove_garbage("{{<!>},{<!>},{<!>},{<a>}}"), "{{}}");
+        let(garbage_removed, _) = remove_garbage("{{<!>},{<!>},{<!>},{<a>}}");
+        assert_eq!(garbage_removed, "{{}}");
+    }
+
+    #[test]
+    fn garbage_character_count0() {
+        let (_, removed) = remove_garbage("<>");
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn garbage_character_count17() {
+        let (_, removed) = remove_garbage("<random characters>");
+        assert_eq!(removed, 17);
+    }
+
+    #[test]
+    fn garbage_character_count_includes_angle_brackets_except_first_one() {
+        let (_, removed) = remove_garbage("<<<<>");
+        assert_eq!(removed, 3);
+    }
+
+    #[test]
+    fn garbage_character_count_excludes_ignored_characters() {
+        let (_, removed) = remove_garbage("<{!>}>");
+        assert_eq!(removed, 2);
+    }
+
+    #[test]
+    fn garbage_character_count_excludes_ignored_characters_2() {
+        let (_, removed) = remove_garbage("<!!>");
+        assert_eq!(removed, 0);
+    }
+
+    #[test]
+    fn garbage_character_count_excludes_ignored_characters_3() {
+        let (_, removed) = remove_garbage("<{o\"i!a,<{i<a>");
+        assert_eq!(removed, 10);
+    }
+
+    #[test]
+    fn garbage_character_count_last_example() {
+        let (_, removed) = remove_garbage("<!!!>>");
+        assert_eq!(removed, 0);
     }
 
     #[test]
@@ -72,17 +121,5 @@ mod tests {
     fn further_score_examples() {
         assert_eq!(score("{{},{}}"), 5);
         assert_eq!(score("{{{},{},{{}}}}"), 16);
-    }
-
-    #[test]
-    fn scores_with_garbage() {
-        assert_eq!(score("{<a>,<a>,<a>,<a>}"), 1);
-        assert_eq!(score("{{<ab>},{<ab>},{<ab>},{<ab>}}"), 9);
-    }
-
-    #[test]
-    fn score_with_garbage_and_ignores() {
-        assert_eq!(score("{{<!!>},{<!!>},{<!!>},{<!!>}}"), 9);
-        assert_eq!(score("{{<a!>},{<a!>},{<a!>},{<ab>}}"), 3);        
     }
 }
