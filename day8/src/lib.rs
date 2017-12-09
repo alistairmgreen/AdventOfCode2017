@@ -155,29 +155,40 @@ impl FromStr for Statement {
 #[derive(Debug)]
 pub struct Registers {
     registers: HashMap<String, i32>,
+    highest_ever_value: i32,
 }
 
 impl Registers {
     pub fn new() -> Registers {
         Registers {
             registers: HashMap::new(),
+            highest_ever_value: 0,
         }
     }
 
-    fn get(&mut self, register: &String) -> &mut i32 {
-        self.registers.entry(register.clone()).or_insert(0)
-    }
-
     pub fn execute(&mut self, statement: &Statement) {
-        let condition_value = *self.get(&statement.condition.register);
+        let condition_value = *self.registers
+            .get(&statement.condition.register)
+            .unwrap_or(&0);
+
         if statement.condition.holds_for_value(condition_value) {
-            let register_value = self.get(&statement.instruction.register);
+            let register_value = self.registers
+                .entry(statement.instruction.register.clone())
+                .or_insert(0);
             *register_value += statement.instruction.increment_value();
+
+            if *register_value > self.highest_ever_value {
+                self.highest_ever_value = *register_value;
+            }
         }
     }
 
     pub fn largest_value(&self) -> i32 {
         *self.registers.values().max().unwrap_or(&0)
+    }
+
+    pub fn get_highest_ever_value(&self) -> i32 {
+        self.highest_ever_value
     }
 }
 
@@ -224,11 +235,11 @@ mod tests {
         let mut registers = Registers::new();
         registers.execute(&statement);
 
-        assert_eq!(*registers.get(&"b".to_string()), 0)
+        assert_eq!(registers.registers.get("b"), None);
     }
 
     #[test]
-    fn part_1_example() {
+    fn example() {
         let statements = vec![
             Statement {
                 instruction: Instruction {
@@ -286,6 +297,7 @@ mod tests {
         }
 
         assert_eq!(registers.largest_value(), 1);
+        assert_eq!(registers.get_highest_ever_value(), 10);
     }
 
     #[test]
@@ -315,7 +327,7 @@ mod tests {
             Condition {
                 register: "a".to_string(),
                 comparison: Comparison::GreaterOrEqual,
-                argument: 1
+                argument: 1,
             }
         );
     }

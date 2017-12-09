@@ -24,5 +24,6 @@ fn run() -> Result<(), failure::Error> {
     }
 
     println!("The largest value in any register is {}.", registers.largest_value());
+    println!("The highest ever value in any register was {}.", registers.get_highest_ever_value());
     Ok(())
 }
