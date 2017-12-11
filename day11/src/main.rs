@@ -7,7 +7,10 @@ use std::process::exit;
 fn main() {
     let puzzle_input = include_str!("puzzle_input.txt");
     match distance_from_origin(&puzzle_input) {
-        Ok(distance) => println!("Distance from origin is {}", distance),
+        Ok((distance, greatest_distance)) => {
+            println!("Distance from origin is {}.", distance);
+            println!("Greatest distance reached was {}.", greatest_distance);
+        },
         Err(e) => {
             eprintln!("ERROR: {}", e);
             exit(1);
@@ -148,14 +151,21 @@ impl Error for ParseDirectionError {
     }
 }
 
-pub fn distance_from_origin(steps: &str) -> Result<i32, ParseDirectionError> {
+pub fn distance_from_origin(steps: &str) -> Result<(i32, i32), ParseDirectionError> {
     let mut displacement = HexVector::origin();
-    for step in steps.split(',') {
-        let x = HexVector::from_str(step.trim())?;
-        displacement += x;
+    let mut greatest_distance: i32 = 0;
+
+    for direction in steps.split(',') {
+        let step = HexVector::from_str(direction.trim())?;
+        displacement += step;
+        
+        let distance = displacement.magnitude();
+        if distance > greatest_distance {
+            greatest_distance = distance;
+        }
     }
 
-    Ok(displacement.magnitude())
+    Ok((displacement.magnitude(), greatest_distance))
 }
 
 #[cfg(test)]
