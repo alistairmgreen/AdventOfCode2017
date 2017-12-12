@@ -51,13 +51,19 @@ impl FromStr for Node {
 
 pub fn find_connections_to(
     target: NodeId,
-    mut nodes: HashMap<NodeId, Node>,
+    nodes: &mut HashMap<NodeId, Node>,
 ) -> HashMap<NodeId, Node> {
     let mut connected: HashMap<NodeId, Node> = HashMap::with_capacity(nodes.len());
 
     let target_node = nodes
         .remove(&target)
         .expect(&format!("No node exists with the target id {}.", target));
+
+    for id in target_node.connections.iter().filter(|&&connected_id| connected_id != target_node.id) {
+        let node = nodes.remove(id).unwrap();
+        connected.insert(*id, node);
+    }
+
     connected.insert(target, target_node);
 
     loop {
@@ -97,7 +103,7 @@ mod tests {
         nodes.insert(5, Node::new(5, vec![6]));
         nodes.insert(6, Node::new(6, vec![4, 5]));
 
-        let connected_to_zero = find_connections_to(0, nodes);
+        let connected_to_zero = find_connections_to(0, &mut nodes);
         assert_eq!(connected_to_zero.len(), 6);
         assert!(!connected_to_zero.contains_key(&1));
     }
