@@ -22,5 +22,11 @@ fn run() -> Result<(), Error> {
 
     println!("The severity of the firewall is {}.", severity);
 
+    let delay = (0..10000).find(|&delay| !firewall.caught_at_time_delay(delay));
+    match delay {
+        Some(t) =>  println!("The minimum time delay to escape detection is {} ps.", t),
+        None => println!("You cannot escape detection in any sensible time."),
+    }        
+
     Ok(())
 }

@@ -9,23 +9,23 @@ use std::iter::FromIterator;
 
 #[derive(Debug, Hash, Eq, PartialEq, Default)]
 pub struct Scanner {
-    depth: u32,
-    range: u32,
+    depth: usize,
+    range: usize,
 }
 
 impl Scanner {
-    pub fn new(depth: u32, range: u32) -> Scanner {
+    pub fn new(depth: usize, range: usize) -> Scanner {
         Scanner {
             depth: depth,
             range: range,
         }
     }
 
-    pub fn severity(&self) -> u32 {
+    pub fn severity(&self) -> usize {
         self.depth * self.range
     }
 
-    pub fn position(&self, time: u32) -> u32 {
+    pub fn position(&self, time: usize) -> usize {
         (0..self.range)
             .chain((1..self.range - 1).rev())
             .cycle()
@@ -38,9 +38,9 @@ impl FromStr for Scanner {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<u32> = s.split(':')
+        let parts: Vec<usize> = s.split(':')
             .map(|n| n.trim().parse())
-            .collect::<Result<Vec<u32>, ParseIntError>>()?;
+            .collect::<Result<Vec<usize>, ParseIntError>>()?;
 
         if parts.len() != 2 {
             bail!("Cannot parse {} as a scanner.", s);
@@ -52,7 +52,7 @@ impl FromStr for Scanner {
 
 #[derive(Debug, Default)]
 pub struct Firewall {
-    scanners: HashMap<u32, Scanner>,
+    scanners: HashMap<usize, Scanner>,
 }
 
 impl Firewall {
@@ -66,7 +66,7 @@ impl Firewall {
         self.scanners.insert(scanner.depth, scanner);
     }
 
-    pub fn caught_at_layer(&self, layer: u32) -> bool {
+    pub fn caught_at_layer(&self, layer: usize) -> bool {
         if let Some(scanner) = self.scanners.get(&layer) {
             scanner.position(layer) == 0
         } else {
@@ -74,11 +74,18 @@ impl Firewall {
         }
     }
 
-    pub fn severity(&self) -> u32 {
-        self.scanners.iter()
+    pub fn severity(&self) -> usize {
+        self.scanners
+            .iter()
             .filter(|&(&layer, scanner)| scanner.position(layer) == 0)
             .map(|(_, scanner)| scanner.severity())
             .sum()
+    }
+
+    pub fn caught_at_time_delay(&self, delay: usize) -> bool {
+        self.scanners
+            .iter()
+            .any(|(&layer, scanner)| scanner.position(layer + delay) == 0)
     }
 }
 
@@ -112,7 +119,7 @@ mod tests {
 
     #[test]
     fn scanner_oscillates() {
-        fn test_scanner(time: u32, expected: u32) {
+        fn test_scanner(time: usize, expected: usize) {
             let position = Scanner::new(1, 4).position(time);
             assert_eq!(
                 position,
@@ -180,8 +187,34 @@ mod tests {
     }
 
     #[test]
+    fn caught_at_time_delay_0_to_9() {
+        let firewall = example_firewall();
+
+        for t in 0..10 {
+            assert!(
+                firewall.caught_at_time_delay(t),
+                "Should be caught with time delay = {}, but was not caught.",
+                t
+            );
+        }
+    }
+
+    #[test]
+    fn not_caught_at_time_delay_10() {
+        let firewall = example_firewall();
+        assert!(!firewall.caught_at_time_delay(10));        
+    }
+
+    #[test]
     fn example_firewall_severity_is_24() {
         let firewall = example_firewall();
         assert_eq!(firewall.severity(), 24);
+    }
+
+    #[test]
+    fn find_time_to_escape_capture() {
+        let firewall = example_firewall();        
+        let delay = (0..100).find(|&delay| !firewall.caught_at_time_delay(delay)).unwrap();
+        assert_eq!(delay, 10);
     }
 }
