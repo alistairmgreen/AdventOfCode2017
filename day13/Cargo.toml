@@ -1,0 +1,7 @@
+[package]
+name = "packet_scanners"
+version = "0.1.0"
+authors = ["Alistair Green <alistairmgreen@gmail.com>"]
+
+[dependencies]
+failure = "0.1.1"
