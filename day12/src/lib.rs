@@ -38,7 +38,7 @@ impl FromStr for Node {
 
         let id = parts[0].trim().parse::<NodeId>()?;
         let connections = parts[1]
-            .split(",")
+            .split(',')
             .map(|number| number.trim().parse::<NodeId>())
             .collect::<Result<Vec<NodeId>, ParseIntError>>()?;
 
