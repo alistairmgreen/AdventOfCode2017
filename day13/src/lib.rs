@@ -26,11 +26,14 @@ impl Scanner {
     }
 
     pub fn position(&self, time: usize) -> usize {
-        (0..self.range)
-            .chain((1..self.range - 1).rev())
-            .cycle()
-            .nth(time as usize)
-            .unwrap()
+        let max_index = self.range - 1;
+        let t = time % (2 * max_index);
+
+        if t > max_index {
+            max_index - (t - max_index)
+        } else {
+            t
+        }
     }
 }
 
@@ -202,7 +205,7 @@ mod tests {
     #[test]
     fn not_caught_at_time_delay_10() {
         let firewall = example_firewall();
-        assert!(!firewall.caught_at_time_delay(10));        
+        assert!(!firewall.caught_at_time_delay(10));
     }
 
     #[test]
@@ -213,8 +216,10 @@ mod tests {
 
     #[test]
     fn find_time_to_escape_capture() {
-        let firewall = example_firewall();        
-        let delay = (0..100).find(|&delay| !firewall.caught_at_time_delay(delay)).unwrap();
+        let firewall = example_firewall();
+        let delay = (0..100)
+            .find(|&delay| !firewall.caught_at_time_delay(delay))
+            .unwrap();
         assert_eq!(delay, 10);
     }
 }
