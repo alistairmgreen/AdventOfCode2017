@@ -15,7 +15,7 @@ fn reverse_segment(numbers: &mut [u8], position: usize, segment_length: u8) {
         .cycle()
         .skip(position)
         .take(segment_length as usize)
-        .map(|&n| n)
+        .cloned()
         .collect();
 
     reversed.reverse();
@@ -41,7 +41,7 @@ fn sparse_hash(input_numbers: &[u8], lengths: &[u8]) -> Vec<u8> {
     let mut numbers = input_numbers.to_vec();
 
     for _ in 0..64 {
-        knot(&mut numbers, &lengths, &mut position, &mut skip);
+        knot(&mut numbers, lengths, &mut position, &mut skip);
     }
 
     numbers
@@ -68,11 +68,15 @@ impl KnotHash {
 
         KnotHash { value: hash }
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.value.as_slice()
+    }
 }
 
 impl fmt::Display for KnotHash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for byte in self.value.iter() {
+        for byte in &self.value {
             write!(f, "{:02x}", byte)?;
         }
 
