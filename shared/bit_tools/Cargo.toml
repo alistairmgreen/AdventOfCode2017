@@ -1,0 +1,6 @@
+[package]
+name = "bit_tools"
+version = "0.1.0"
+authors = ["Alistair Green <alistairmgreen@gmail.com>"]
+
+[dependencies]
