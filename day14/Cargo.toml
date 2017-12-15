@@ -6,3 +6,4 @@ authors = ["Alistair Green <alistairmgreen@gmail.com>"]
 [dependencies]
 knot = { path = "../shared/knot" }
 bit_tools = { path = "../shared/bit_tools" }
+lazy_static = "1.0"
