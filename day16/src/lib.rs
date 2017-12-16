@@ -15,15 +15,18 @@ impl FromStr for DanceMove {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() < 2 {
-            return Err(ParseDanceMoveError::new(&format!("{} is not a valid move.", s)));
+            return Err(ParseDanceMoveError::new(&format!(
+                "{} is not a valid move.",
+                s
+            )));
         }
 
         let (move_type, args) = s.split_at(1);
         match move_type {
             "s" => {
-                let x:usize = args.trim().parse()?;
+                let x: usize = args.trim().parse()?;
                 Ok(DanceMove::Spin(x))
-            },
+            }
             "x" => {
                 let arg_values = args.split('/')
                     .map(|n| n.trim().parse::<usize>())
@@ -34,7 +37,7 @@ impl FromStr for DanceMove {
                 } else {
                     Err(ParseDanceMoveError::new("Missing exchange values"))
                 }
-            },
+            }
             "p" => {
                 let arg_values: Vec<&str> = args.split('/').collect();
                 if arg_values.len() == 2 {
@@ -42,12 +45,15 @@ impl FromStr for DanceMove {
                         if let Some(b) = arg_values[1].chars().nth(0) {
                             return Ok(DanceMove::Partner((a, b)));
                         }
-                    } 
+                    }
                 }
-                
+
                 Err(ParseDanceMoveError::new("Missing partners"))
-            },
-            _ => Err(ParseDanceMoveError::new(&format!("{} is not a valid move type.", move_type)))
+            }
+            _ => Err(ParseDanceMoveError::new(&format!(
+                "{} is not a valid move type.",
+                move_type
+            ))),
         }
     }
 }
@@ -61,7 +67,7 @@ impl Dance for Vec<char> {
         match *dance_move {
             DanceMove::Spin(x) => spin(self, x),
             DanceMove::Exchange((a, b)) => exchange(self, a, b),
-            DanceMove::Partner((a, b)) => partner(self, a, b)
+            DanceMove::Partner((a, b)) => partner(self, a, b),
         }
     }
 }
@@ -89,27 +95,25 @@ fn spin(items: &mut Vec<char>, x: usize) {
 fn exchange(items: &mut Vec<char>, a: usize, b: usize) {
     let item_a = items[a];
     let item_b = items[b];
-    
+
     items[a] = item_b;
     items[b] = item_a;
 }
 
 fn partner(items: &mut Vec<char>, a: char, b: char) {
-    if let Some(index_a) = index_of(items, a) {
-        if let Some(index_b) = index_of(items, b) {
+    if let Some(index_a) = index_of(items, &a) {
+        if let Some(index_b) = index_of(items, &b) {
             exchange(items, index_a, index_b);
         }
     }
 }
 
-fn index_of(items: &[char], target: char) -> Option<usize> {
-    let found = items.iter()
-        .enumerate()
-        .find(|&(_, &c)| c == target);
-    
+fn index_of<T: PartialEq>(items: &[T], target: &T) -> Option<usize> {
+    let found = items.iter().enumerate().find(|&(_,c)| *c == *target);
+
     match found {
         Some((index, _)) => Some(index),
-        None => None
+        None => None,
     }
 }
 
@@ -140,7 +144,7 @@ mod tests {
     #[test]
     fn index_of_returns_character_index() {
         let items = vec!['a', 'b', 'c'];
-        let index = index_of(&items, 'b').unwrap();
+        let index = index_of(&items, &'b').unwrap();
         assert_eq!(index, 1);
     }
 
@@ -156,7 +160,7 @@ mod tests {
         let mut items = letters('a', 'e');
         items.perform(&DanceMove::Spin(1));
         assert_eq!(items, vec!['e', 'a', 'b', 'c', 'd']);
-        
+
         items.perform(&DanceMove::Exchange((3, 4)));
         assert_eq!(items, vec!['e', 'a', 'b', 'd', 'c']);
 
