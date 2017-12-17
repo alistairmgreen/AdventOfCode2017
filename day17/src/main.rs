@@ -3,6 +3,13 @@ fn main() {
     let (index, buffer) = spinlock(step_size, 2017);
     let next_number = buffer[(index + 1) % buffer.len()];
     println!("The number after 2017 is {}.", next_number);
+
+    let iterations = 50_000_000;
+    let after_zero = number_after_zero(step_size, iterations);
+    println!(
+        "After {} iterations, the number after zero is {}.",
+        iterations, after_zero
+    );
 }
 
 fn spinlock(step: usize, iterations: usize) -> (usize, Vec<usize>) {
@@ -10,12 +17,26 @@ fn spinlock(step: usize, iterations: usize) -> (usize, Vec<usize>) {
     buffer.push(0);
     let mut index = 0;
 
-    for value in 1..iterations + 1 {
-        index = ((index + step) % buffer.len()) + 1;
-        buffer.insert(index, value);
+    for n in 1..iterations + 1 {
+        index = ((index + step) % n) + 1;
+        buffer.insert(index, n);
     }
 
     (index, buffer)
+}
+
+fn number_after_zero(step: usize, iterations: usize) -> usize {
+    let mut index = 0;
+    let mut after_zero = 1;
+
+    for n in 1..iterations + 1 {
+        index = ((index + step) % n) + 1;
+        if index == 1 {
+            after_zero = n;
+        }
+    }
+
+    after_zero
 }
 
 #[cfg(test)]
@@ -48,5 +69,20 @@ mod tests {
         let (index, buffer) = spinlock(3, 2017);
         let next_number = buffer[(index + 1) % buffer.len()];
         assert_eq!(next_number, 638);
+    }
+
+    #[test]
+    fn number_after_zero_for_1_iteration() {
+        assert_eq!(number_after_zero(3, 1), 1);
+    }
+
+    #[test]
+    fn number_after_zero_for_3_iterations() {
+        assert_eq!(number_after_zero(3, 3), 2);
+    }
+
+    #[test]
+    fn number_after_zero_for_9_iteratios() {
+        assert_eq!(number_after_zero(3, 9), 9);
     }
 }
