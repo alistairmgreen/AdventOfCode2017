@@ -1,11 +1,77 @@
 use std::collections::HashMap;
+use std::str::FromStr;
+use std::fmt;
 
 pub type Register = char;
 
 #[derive(Debug, Eq, PartialEq)]
+pub enum ErrorKind {
+    UnrecognizedInstruction,
+    MissingArgument,
+    WrongArgumentType,
+}
+
+#[derive(Debug)]
+pub struct Error {
+    pub kind: ErrorKind,
+}
+
+impl Error {
+    fn missing_argument() -> Error {
+        Error {
+            kind: ErrorKind::MissingArgument,
+        }
+    }
+
+    fn unrecognized_instruction() -> Error {
+        Error {
+            kind: ErrorKind::UnrecognizedInstruction,
+        }
+    }
+
+    fn wrong_type() -> Error {
+        Error {
+            kind: ErrorKind::WrongArgumentType,
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self.kind {
+            ErrorKind::UnrecognizedInstruction => write!(f, "Unrecognized instruction"),
+            ErrorKind::MissingArgument => write!(f, "Missing argument"),
+            ErrorKind::WrongArgumentType => {
+                write!(f, "Literal value supplied where register required")
+            }
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn description(&self) -> &str {
+        "Invalid instruction"
+    }
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub enum Value {
     FromRegister(Register),
-    Literal(i32),
+    Literal(i64),
+}
+
+impl FromStr for Value {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(n) = s.parse() {
+            Ok(Value::Literal(n))
+        } else if let Some(c) = s.chars().nth(0) {
+            Ok(Value::FromRegister(c))
+        } else {
+            Err(Error::missing_argument())
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -19,8 +85,68 @@ pub enum Instruction {
     JumpIfGreaterThanZero(Value, Value),
 }
 
+impl FromStr for Instruction {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split_whitespace().collect();
+        let length = parts.len();
+        if length < 2 {
+            return Err(Error::missing_argument());
+        }
+
+        let instruction = parts[0];
+        let arg1: Value = parts[1].parse()?;
+
+        let arg2: Option<Value> = if length > 2 {
+            Some(parts[2].parse()?)
+        } else {
+            None
+        };
+
+        match instruction {
+            "add" => match arg1 {
+                Value::FromRegister(r) => match arg2 {
+                    Some(a) => Ok(Instruction::Add(r, a)),
+                    None => Err(Error::missing_argument()),
+                },
+                Value::Literal(_) => Err(Error::wrong_type()),
+            },
+            "mod" => match arg1 {
+                Value::FromRegister(r) => match arg2 {
+                    Some(a) => Ok(Instruction::Modulus(r, a)),
+                    None => Err(Error::missing_argument()),
+                },
+                Value::Literal(_) => Err(Error::wrong_type()),
+            },
+            "mul" => match arg1 {
+                Value::FromRegister(r) => match arg2 {
+                    Some(a) => Ok(Instruction::Multiply(r, a)),
+                    None => Err(Error::missing_argument()),
+                },
+                Value::Literal(_) => Err(Error::wrong_type()),
+            },
+            "rcv" => Ok(Instruction::Recover(arg1)),
+            "set" => match arg1 {
+                Value::FromRegister(r) => match arg2 {
+                    Some(a) => Ok(Instruction::Set(r, a)),
+                    None => Err(Error::missing_argument()),
+                },
+                Value::Literal(_) => Err(Error::wrong_type()),
+            },
+            "snd" => Ok(Instruction::Sound(arg1)),
+            "jgz" => match arg2 {
+                Some(v) => Ok(Instruction::JumpIfGreaterThanZero(arg1, v)),
+                None => Err(Error::missing_argument()),
+            },
+            _ => Err(Error::unrecognized_instruction()),
+        }
+    }
+}
+
+
 struct Registers {
-    registers: HashMap<Register, i32>,
+    registers: HashMap<Register, i64>,
 }
 
 impl Registers {
@@ -30,21 +156,21 @@ impl Registers {
         }
     }
 
-    fn get_value(&self, value: &Value) -> i32 {
+    fn get_value(&self, value: &Value) -> i64 {
         match *value {
             Value::FromRegister(r) => *self.registers.get(&r).unwrap_or(&0),
             Value::Literal(v) => v,
         }
     }
 
-    fn get_mut(&mut self, register: &Register) -> &mut i32 {
+    fn get_mut(&mut self, register: &Register) -> &mut i64 {
         self.registers.entry(register.clone()).or_insert(0)
     }
 }
 
-pub fn play(instructions: &[Instruction]) -> Option<i32> {
+pub fn play(instructions: &[Instruction]) -> Option<i64> {
     let mut registers = Registers::new();
-    let mut last_sound: Option<i32> = None;
+    let mut last_sound: Option<i64> = None;
     let mut index = 0;
 
     while index < instructions.len() {
@@ -82,10 +208,10 @@ pub fn play(instructions: &[Instruction]) -> Option<i32> {
                     1
                 }
             }
-            _ => 1
+            _ => 1,
         };
 
-        index = (index as i32 + increment) as usize;
+        index = (index as i64 + increment) as usize;
     }
 
     None
@@ -111,5 +237,11 @@ mod tests {
         ];
 
         assert_eq!(play(&instructions).unwrap(), 4);
+    }
+
+    #[test]
+    fn parse_add_valid() {
+        let add: Instruction = "add a 2".parse().expect("'add a 2' is a valid instruction");
+        assert_eq!(add, Instruction::Add('a', Value::Literal(2)));
     }
 }
