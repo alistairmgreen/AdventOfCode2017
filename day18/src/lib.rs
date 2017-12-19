@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::fmt;
+use std::sync::mpsc;
+use std::sync::mpsc::{Sender, Receiver};
+use std::time::Duration;
+use std::thread;
 
 pub type Register = char;
 
@@ -54,7 +58,7 @@ impl std::error::Error for Error {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Value {
     FromRegister(Register),
     Literal(i64),
@@ -74,14 +78,14 @@ impl FromStr for Value {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Instruction {
     Add(Register, Value),
     Modulus(Register, Value),
     Multiply(Register, Value),
-    Recover(Value),
+    Receive(Register),
     Set(Register, Value),
-    Sound(Value),
+    Send(Value),
     JumpIfGreaterThanZero(Value, Value),
 }
 
@@ -126,7 +130,10 @@ impl FromStr for Instruction {
                 },
                 Value::Literal(_) => Err(Error::wrong_type()),
             },
-            "rcv" => Ok(Instruction::Recover(arg1)),
+            "rcv" => match arg1 {
+                Value::FromRegister(r) => Ok(Instruction::Receive(r)),
+                Value::Literal(_) => Err(Error::wrong_type())
+            },
             "set" => match arg1 {
                 Value::FromRegister(r) => match arg2 {
                     Some(a) => Ok(Instruction::Set(r, a)),
@@ -134,7 +141,7 @@ impl FromStr for Instruction {
                 },
                 Value::Literal(_) => Err(Error::wrong_type()),
             },
-            "snd" => Ok(Instruction::Sound(arg1)),
+            "snd" => Ok(Instruction::Send(arg1)),
             "jgz" => match arg2 {
                 Some(v) => Ok(Instruction::JumpIfGreaterThanZero(arg1, v)),
                 None => Err(Error::missing_argument()),
@@ -153,6 +160,15 @@ impl Registers {
     fn new() -> Registers {
         Registers {
             registers: HashMap::new(),
+        }
+    }
+
+    fn with_id(id: i64) -> Registers {
+        let mut map = HashMap::new();
+        map.insert('p', id);
+
+        Registers {
+            registers: map
         }
     }
 
@@ -186,15 +202,15 @@ pub fn play(instructions: &[Instruction]) -> Option<i64> {
                 let factor = registers.get_value(value);
                 *registers.get_mut(register) *= factor;
             }
-            Instruction::Recover(ref value) => {
-                if registers.get_value(value) > 0 {
+            Instruction::Receive(ref register) => {
+                if *registers.get_mut(register) > 0 {
                     return last_sound;
                 }
             }
             Instruction::Set(ref register, ref value) => {
                 *registers.get_mut(register) = registers.get_value(value);
             }
-            Instruction::Sound(ref value) => {
+            Instruction::Send(ref value) => {
                 last_sound = Some(registers.get_value(value));
             }
             Instruction::JumpIfGreaterThanZero(_, _) => {}
@@ -217,6 +233,90 @@ pub fn play(instructions: &[Instruction]) -> Option<i64> {
     None
 }
 
+fn count_messages(instructions: &[Instruction], id: i64, tx: Sender<i64>, rx: Receiver<i64>) {
+    let mut messages_sent: usize = 0;
+
+    let mut registers = Registers::with_id(id);
+    let mut index = 0;
+
+    while index < instructions.len() {
+        match instructions[index] {
+            Instruction::Add(ref register, ref value) => {
+                *registers.get_mut(register) += registers.get_value(value);
+            }
+            Instruction::Modulus(ref register, ref value) => {
+                let modulo = registers.get_value(value);
+                *registers.get_mut(register) %= modulo;
+            }
+            Instruction::Multiply(ref register, ref value) => {
+                let factor = registers.get_value(value);
+                *registers.get_mut(register) *= factor;
+            }
+            Instruction::Receive(ref register) => {
+               match rx.recv_timeout(Duration::from_secs(1)) {
+                   Ok(value) => *registers.get_mut(register) = value,
+                   Err(_) => {
+                       println!("Receive timed out for program {}; terminating.", id);
+                       break;
+                   }
+               }
+            }
+            Instruction::Set(ref register, ref value) => {
+                *registers.get_mut(register) = registers.get_value(value);
+            }
+            Instruction::Send(ref value) => {
+                let to_send = registers.get_value(value);
+                match tx.send(to_send) {
+                    Ok(_) => messages_sent += 1,
+                    Err(_) => {
+                        println!("Program {} cannot send; terminating.", id);
+                        break; // Assume the other thread has hung up
+                    }
+                }
+            }
+            Instruction::JumpIfGreaterThanZero(_, _) => {}
+        }
+
+        let increment = match instructions[index] {
+            Instruction::JumpIfGreaterThanZero(ref condition, ref jump) => {
+                if registers.get_value(condition) > 0 {
+                    registers.get_value(jump)
+                } else {
+                    1
+                }
+            }
+            _ => 1,
+        };
+
+        index = (index as i64 + increment) as usize;
+    }
+
+    println!("Program {} has sent {} messages.", id, messages_sent);
+}
+
+pub fn perform_duet(instructions: &[Instruction]) {
+    let mut instructions_0: Vec<Instruction> = Vec::with_capacity(instructions.len());
+    let mut instructions_1: Vec<Instruction> = Vec::with_capacity(instructions.len());
+    for instruction in instructions.iter() {
+        instructions_0.push(instruction.clone());
+        instructions_1.push(instruction.clone());
+    }
+
+    let (tx0, rx1): (Sender<i64>, Receiver<i64>) = mpsc::channel();
+    let (tx1, rx0): (Sender<i64>, Receiver<i64>) = mpsc::channel();
+
+    let thread0 = thread::spawn(move || {
+        count_messages(&instructions_0, 0, tx0, rx0);
+    });
+
+    let thread1 = thread::spawn(move || {
+        count_messages(&instructions_1, 1, tx1, rx1);
+    });
+
+    thread0.join().unwrap();
+    thread1.join().unwrap();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,9 +328,9 @@ mod tests {
             Instruction::Add('a', Value::Literal(2)),
             Instruction::Multiply('a', Value::FromRegister('a')),
             Instruction::Modulus('a', Value::Literal(5)),
-            Instruction::Sound(Value::FromRegister('a')),
+            Instruction::Send(Value::FromRegister('a')),
             Instruction::Set('a', Value::Literal(0)),
-            Instruction::Recover(Value::FromRegister('a')),
+            Instruction::Receive('a'),
             Instruction::JumpIfGreaterThanZero(Value::FromRegister('a'), Value::Literal(-1)),
             Instruction::Set('a', Value::Literal(1)),
             Instruction::JumpIfGreaterThanZero(Value::FromRegister('a'), Value::Literal(-2)),
@@ -243,5 +343,20 @@ mod tests {
     fn parse_add_valid() {
         let add: Instruction = "add a 2".parse().expect("'add a 2' is a valid instruction");
         assert_eq!(add, Instruction::Add('a', Value::Literal(2)));
+    }
+
+    #[test]
+    fn part_2_example() {
+        let program = vec![
+            Instruction::Send(Value::Literal(1)),
+            Instruction::Send(Value::Literal(2)),
+            Instruction::Send(Value::FromRegister('p')),
+            Instruction::Receive('a'),
+            Instruction::Receive('b'),
+            Instruction::Receive('c'),
+            Instruction::Receive('d')
+        ];
+
+        perform_duet(&program);
     }
 }

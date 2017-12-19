@@ -1,5 +1,5 @@
 extern crate duet;
-use duet::{Instruction, Error, play};
+use duet::{Instruction, Error, play, perform_duet};
 use std::process::exit;
 
 fn main() {
@@ -20,6 +20,8 @@ fn run() -> Result<(), Error> {
         Some(s) => println!("Frequency of first sound played is {} Hz.", s),
         None => println!("No sound is played.")
     };
+
+    perform_duet(&instructions);
 
     Ok(())
 }
