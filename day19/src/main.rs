@@ -4,12 +4,13 @@ fn main() {
         .map(|line| line.chars().map(Element::from).collect::<Vec<Element>>())
         .collect::<Vec<Vec<Element>>>();
 
-    let visited = follow(&maze);
+    let (visited, steps) = follow(&maze);
     println!("The following points were visited:");
     for point in &visited {
         print!("{}", point);
     }
     println!();
+    println!("The total number of steps was {}.", steps);
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -90,7 +91,7 @@ fn step(
     }
 }
 
-fn follow(grid: &[Vec<Element>]) -> Vec<char> {
+fn follow(grid: &[Vec<Element>]) -> (Vec<char>, usize) {
     let mut visited: Vec<char> = Vec::new();
     let mut direction = Direction::South;
     let mut row: usize = 0;
@@ -101,6 +102,8 @@ fn follow(grid: &[Vec<Element>]) -> Vec<char> {
         .find(|&(_, x)| *x == Element::Path)
         .map(|(c, _)| c)
         .unwrap();
+    
+    let mut steps: usize = 0;
 
     loop {
         let last_column = grid[row].len() - 1;
@@ -108,6 +111,7 @@ fn follow(grid: &[Vec<Element>]) -> Vec<char> {
             Some((r, c)) => {
                 row = r;
                 column = c;
+                steps += 1;
 
                 match grid[row][column] {
                     Element::Space => break,
@@ -137,7 +141,7 @@ fn follow(grid: &[Vec<Element>]) -> Vec<char> {
         }
     }
 
-    visited
+    (visited, steps)
 }
 
 #[cfg(test)]
@@ -168,8 +172,9 @@ mod tests {
             .map(|line| line.chars().map(Element::from).collect::<Vec<Element>>())
             .collect::<Vec<Vec<Element>>>();
 
-        let visited = follow(&elements);
+        let (visited, steps) = follow(&elements);
 
         assert_eq!(visited, vec!['A', 'B', 'C', 'D', 'E', 'F']);
+        assert_eq!(steps, 38);
     }
 }
