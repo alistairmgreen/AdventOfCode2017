@@ -71,7 +71,7 @@ pub fn simulate(mut particles: Vec<Particle>) -> usize {
     let mut times_with_same_result: usize = 0;
 
     while times_with_same_result < 1000 {
-        for particle in particles.iter_mut() {
+        for particle in &mut particles {
             particle.tick();
         }
 
