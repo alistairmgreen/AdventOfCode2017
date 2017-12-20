@@ -1,4 +1,7 @@
 use std::ops::{Add, AddAssign};
+use std::str::FromStr;
+use std::num::ParseIntError;
+use failure::Error;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Vector3D {
@@ -38,5 +41,32 @@ impl AddAssign for Vector3D {
         self.x += rhs.x;
         self.y += rhs.y;
         self.z += rhs.z;
+    }
+}
+
+impl FromStr for Vector3D {
+    type Err = Error;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts = s.split(',')
+            .map(|s| s.trim().parse())
+            .collect::<Result<Vec<i64>, ParseIntError>>()?;
+        
+        if parts.len() < 3 {
+            bail!("{} is not a valid 3D vector.", s);
+        }
+
+        Ok(Vector3D::new(parts[0], parts[1], parts[2]))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_vector() {
+        let v: Vector3D = "-833,-499,-1391".parse().unwrap();
+        assert_eq!(v, Vector3D::new(-833, -499, -1391));
     }
 }
