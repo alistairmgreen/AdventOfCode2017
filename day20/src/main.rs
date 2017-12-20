@@ -18,9 +18,13 @@ fn run() -> Result<(), Error> {
         .map(|line| line.parse::<Particle>())
         .collect::<Result<Vec<Particle>, Error>>()?;
     
-    let closest = simulate(particles);
+    let closest = simulate(particles.clone());
 
-    println!("In the long run, the closest particle is number {}.", closest);
+    println!("Part 1: In the long run, the closest particle is number {}.", closest);
+
+    let remaining = simulate_with_collisions(particles);
+
+    println!("Part 2: {} particles are left after all collisions have been resolved.", remaining);
 
     Ok(())
 }
