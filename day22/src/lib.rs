@@ -5,16 +5,9 @@ use std::str::{FromStr};
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum InfectionState {
     Clean,
+    Weakened,
     Infected,
-}
-
-impl InfectionState {
-    pub fn invert(&mut self) {
-        *self = match *self {
-            InfectionState::Clean => InfectionState::Infected,
-            InfectionState::Infected => InfectionState::Clean,
-        }
-    }
+    Flagged,
 }
 
 impl From<char> for InfectionState {
@@ -100,6 +93,15 @@ impl Direction {
             Direction::West => Direction::South,
         }
     }
+
+    fn reverse(&self) -> Direction {
+        match *self {
+            Direction::North => Direction::South,
+            Direction::East => Direction::West,
+            Direction::South => Direction::North,
+            Direction::West => Direction::East,
+        }
+    }
 }
 
 fn step(position: &(i32, i32), direction: Direction) -> (i32, i32) {
@@ -120,15 +122,24 @@ pub fn infect(grid: &mut InfiniteGrid, iterations: usize) -> usize {
 
     for _ in 0..iterations {
         let current_sector = &mut grid[position];
+
         direction = match *current_sector {
-            InfectionState::Clean => {
-                infections += 1;
-                direction.left()
-            }
+            InfectionState::Clean => direction.left(),
+            InfectionState::Weakened => direction,
             InfectionState::Infected => direction.right(),
+            InfectionState::Flagged => direction.reverse()
         };
 
-        current_sector.invert();
+        *current_sector = match *current_sector {
+            InfectionState::Clean => InfectionState::Weakened,
+            InfectionState::Weakened => InfectionState::Infected,
+            InfectionState::Infected => InfectionState::Flagged,
+            InfectionState::Flagged => InfectionState::Clean
+        };
+
+        if *current_sector == InfectionState::Infected {
+            infections += 1;
+        }
 
         position = step(&position, direction);
     }
@@ -155,26 +166,17 @@ mod tests {
     }
 
     #[test]
-    fn test_invert_sector() {
-        let mut x = InfectionState::Clean;
-        x.invert();
-        assert_eq!(x, InfectionState::Infected);
-        x.invert();
-        assert_eq!(x, InfectionState::Clean);
-    }
-
-    #[test]
-    fn part_1_example_a() {
+    fn part_2_example_a() {
         let mut grid: InfiniteGrid = "..#\n#..\n...".parse().unwrap();
         println!("Grid: {:?}", grid);
-        let infections = infect(&mut grid, 70);
-        assert_eq!(infections, 41);
+        let infections = infect(&mut grid, 100);
+        assert_eq!(infections, 26);
     }
 
     #[test]
-    fn part_1_example_b() {
+    fn part_2_example_b() {
         let mut grid: InfiniteGrid = "..#\n#..\n...".parse().unwrap();
-        let infections = infect(&mut grid, 10_000);
-        assert_eq!(infections, 5587);
+        let infections = infect(&mut grid, 10_000_000);
+        assert_eq!(infections, 2_511_944);
     }
 }
