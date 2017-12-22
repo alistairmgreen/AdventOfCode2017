@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::ops::{Index, IndexMut};
+use std::str::{FromStr};
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-enum InfectionState {
+pub enum InfectionState {
     Clean,
     Infected,
 }
@@ -16,7 +17,17 @@ impl InfectionState {
     }
 }
 
-struct InfiniteGrid {
+impl From<char> for InfectionState {
+   fn from(c: char) -> InfectionState {
+       match c {
+           '#' => InfectionState::Infected,
+           _ => InfectionState::Clean
+       }
+   } 
+}
+
+#[derive(Debug)]
+pub struct InfiniteGrid {
     grid: HashMap<(i32, i32), InfectionState>,
 }
 
@@ -25,6 +36,27 @@ impl InfiniteGrid {
         InfiniteGrid {
             grid: HashMap::new(),
         }
+    }
+}
+
+impl FromStr for InfiniteGrid {
+    type Err = ();
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut grid = InfiniteGrid::new();
+        let lines = s.lines().collect::<Vec<&str>>();
+        let middle_line = lines.len() as i32 / 2;
+
+        for (row, line) in lines.iter().enumerate() {
+            let y = middle_line - (row as i32);
+            let middle_column = line.len() as i32 / 2;
+            for (column, character) in line.chars().enumerate() {
+                let x = (column as i32) - middle_column;
+                grid[(x, y)] = character.into();
+            }
+        }
+
+        Ok(grid)
     }
 }
 
@@ -81,7 +113,7 @@ fn step(position: &(i32, i32), direction: Direction) -> (i32, i32) {
     }
 }
 
-fn infect(grid: &mut InfiniteGrid, iterations: usize) -> usize {
+pub fn infect(grid: &mut InfiniteGrid, iterations: usize) -> usize {
     let mut infections: usize = 0;
     let mut position = (0, 0);
     let mut direction = Direction::North;
@@ -133,18 +165,15 @@ mod tests {
 
     #[test]
     fn part_1_example_a() {
-        let mut grid = InfiniteGrid::new();
-        grid[(1, 1)] = InfectionState::Infected;
-        grid[(-1, 0)] = InfectionState::Infected;
+        let mut grid: InfiniteGrid = "..#\n#..\n...".parse().unwrap();
+        println!("Grid: {:?}", grid);
         let infections = infect(&mut grid, 70);
         assert_eq!(infections, 41);
     }
 
     #[test]
     fn part_1_example_b() {
-        let mut grid = InfiniteGrid::new();
-        grid[(1, 1)] = InfectionState::Infected;
-        grid[(-1, 0)] = InfectionState::Infected;
+        let mut grid: InfiniteGrid = "..#\n#..\n...".parse().unwrap();
         let infections = infect(&mut grid, 10_000);
         assert_eq!(infections, 5587);
     }
