@@ -19,7 +19,7 @@ impl From<char> for InfectionState {
    } 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InfiniteGrid {
     grid: HashMap<(i32, i32), InfectionState>,
 }
@@ -56,7 +56,7 @@ impl FromStr for InfiniteGrid {
 impl Index<(i32, i32)> for InfiniteGrid {
     type Output = InfectionState;
 
-    fn index<'a>(&'a self, index: (i32, i32)) -> &'a Self::Output {
+    fn index(&self, index: (i32, i32)) -> &Self::Output {
         self.grid.get(&index).unwrap_or(&InfectionState::Clean)
     }
 }
@@ -67,7 +67,7 @@ impl IndexMut<(i32, i32)> for InfiniteGrid {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 enum Direction {
     North,
     East,
