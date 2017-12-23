@@ -38,17 +38,17 @@ impl Processor {
         while index < instruction_count {
             match instructions[index] {
                 Instruction::Set(ref register, ref value) => {
-                    let x = self.get_value(&value);
-                    *self.get_mut(&register) = x;
+                    let x = self.get_value(value);
+                    *self.get_mut(register) = x;
                 }
                 Instruction::Subtract(ref register, ref value) => {
-                    let x = self.get_value(&value);
-                    *self.get_mut(&register) -= x;
+                    let x = self.get_value(value);
+                    *self.get_mut(register) -= x;
                 }
                 Instruction::Multiply(ref register, ref value) => {
                     self.multiplications += 1;
-                    let x = self.get_value(&value);
-                    *self.get_mut(&register) *= x;
+                    let x = self.get_value(value);
+                    *self.get_mut(register) *= x;
                 }
                 Instruction::JumpIfNotZero(_, _) => {}
             }
