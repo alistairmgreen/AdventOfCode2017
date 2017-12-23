@@ -1,7 +1,7 @@
 pub mod errors;
 pub mod instructions;
 pub use instructions::{Instruction, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap};
 
 pub type Register = char;
 
@@ -11,9 +11,18 @@ pub struct Processor {
 }
 
 impl Processor {
-    pub fn new() -> Processor {
+    pub fn debug() -> Processor {
         Processor {
             registers: HashMap::new(),
+            multiplications: 0,
+        }
+    }
+
+    pub fn release() -> Processor {
+        let mut registers = HashMap::new();
+        registers.insert('a', 1);
+        Processor {
+            registers: registers,
             multiplications: 0,
         }
     }
@@ -59,12 +68,44 @@ impl Processor {
 
     fn get_value(&self, value: &Value) -> i64 {
         match *value {
-            Value::FromRegister(r) => *self.registers.get(&r).unwrap_or(&0),
+            Value::FromRegister(r) => self.get_register(r),
             Value::Literal(v) => v,
         }
     }
 
     fn get_mut(&mut self, register: &Register) -> &mut i64 {
         self.registers.entry(register.clone()).or_insert(0)
+    }
+
+    pub fn get_register(&self, register: Register) -> i64 {
+        *self.registers.get(&register).unwrap_or(&0)
+    }
+}
+
+pub fn primes_up_to(n: usize) -> Vec<usize> {
+    let mut primes = Vec::new();
+
+    let mut candidate = 3;
+    while candidate <= n {
+        if !primes.iter().any(|n| candidate % n == 0) {
+            primes.push(candidate);
+        }
+
+        candidate += 2;
+    }
+
+    primes.insert(0, 2);
+
+    primes
+}
+
+#[cfg(test)]
+mod tests {
+    use super::primes_up_to;
+
+    #[test]
+    fn find_primes_up_to_20() {
+        let primes = primes_up_to(20);
+        assert_eq!(primes, vec![2, 3, 5, 7, 11, 13, 17, 19]);
     }
 }
