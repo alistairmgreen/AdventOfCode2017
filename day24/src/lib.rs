@@ -10,11 +10,11 @@ pub struct Component {
 
 impl FromStr for Component {
     type Err = ParseComponentError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts = s.split('/')
-        .map(|x| x.trim().parse())
-        .collect::<Result<Vec<usize>, _>>()?;
+            .map(|x| x.trim().parse())
+            .collect::<Result<Vec<usize>, _>>()?;
 
         if parts.len() == 2 {
             Ok(Component::new(parts[0], parts[1]))
@@ -76,6 +76,10 @@ impl Bridge {
         self.components.push(component);
     }
 
+    pub fn length(&self) -> usize {
+        self.components.len()
+    }
+
     pub fn strength(&self) -> usize {
         self.components
             .iter()
@@ -84,7 +88,7 @@ impl Bridge {
     }
 }
 
-pub fn build(existing_bridge: &Bridge, components: &[Component]) -> Bridge {
+pub fn build_strongest(existing_bridge: &Bridge, components: &[Component]) -> Bridge {
     let required_connector = existing_bridge.end_connector();
     let mut bridge = existing_bridge.clone();
     let mut highest_strength = existing_bridge.strength();
@@ -99,13 +103,45 @@ pub fn build(existing_bridge: &Bridge, components: &[Component]) -> Bridge {
         candidate_bridge.append(remaining_components.remove(index));
 
         if !remaining_components.is_empty() {
-            candidate_bridge = build(&candidate_bridge, &remaining_components);
+            candidate_bridge = build_strongest(&candidate_bridge, &remaining_components);
         }
 
         let candidate_strength = candidate_bridge.strength();
         if candidate_strength > highest_strength {
             highest_strength = candidate_strength;
             bridge = candidate_bridge;
+        }
+    }
+
+    bridge
+}
+
+pub fn build_longest(existing_bridge: &Bridge, components: &[Component]) -> Bridge {
+    let required_connector = existing_bridge.end_connector();
+    let mut bridge = existing_bridge.clone();
+    let mut greatest_length = bridge.length();
+
+    for (index, _) in components
+        .iter()
+        .enumerate()
+        .filter(|&(_, c)| c.compatible_with(required_connector))
+    {
+        let mut candidate_bridge = existing_bridge.clone();
+        let mut remaining_components = components.to_owned();
+        candidate_bridge.append(remaining_components.remove(index));
+
+        if !remaining_components.is_empty() {
+            candidate_bridge = build_longest(&candidate_bridge, &remaining_components);
+        }
+
+        let candidate_length = candidate_bridge.length();
+        if candidate_length > greatest_length {
+            greatest_length = candidate_length;
+            bridge = candidate_bridge;
+        } else if candidate_length == greatest_length
+            && candidate_bridge.strength() > bridge.strength()
+        {
+            bridge = candidate_bridge
         }
     }
 
@@ -129,7 +165,7 @@ mod tests {
     }
 
     #[test]
-    fn build_finds_strongest_bridge() {
+    fn build_strongest_finds_strongest_bridge() {
         let components = vec![
             Component::new(0, 2),
             Component::new(2, 2),
@@ -141,7 +177,7 @@ mod tests {
             Component::new(9, 10),
         ];
 
-        let strongest_bridge = build(&Bridge::new(), &components);
+        let strongest_bridge = build_strongest(&Bridge::new(), &components);
 
         assert_eq!(
             strongest_bridge.components,
@@ -153,5 +189,33 @@ mod tests {
         );
 
         assert_eq!(strongest_bridge.strength(), 31);
+    }
+
+    #[test]
+    fn build_longest_finds_longest_bridge() {
+        let components = vec![
+            Component::new(0, 2),
+            Component::new(2, 2),
+            Component::new(2, 3),
+            Component::new(3, 4),
+            Component::new(3, 5),
+            Component::new(0, 1),
+            Component::new(10, 1),
+            Component::new(9, 10),
+        ];
+
+        let longest_bridge = build_longest(&Bridge::new(), &components);
+
+        assert_eq!(
+            longest_bridge.components,
+            vec![
+                Component::new(0, 2),
+                Component::new(2, 2),
+                Component::new(2, 3),
+                Component::new(3, 5),
+            ]
+        );
+
+        assert_eq!(longest_bridge.strength(), 19);
     }
 }
