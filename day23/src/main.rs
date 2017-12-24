@@ -2,7 +2,6 @@ extern crate conflagration;
 use conflagration::{primes_up_to, Instruction, Processor};
 use conflagration::errors::Error;
 use std::process::exit;
-use std::collections::HashSet;
 
 fn main() {
     if let Err(e) = run() {
@@ -42,7 +41,7 @@ fn part2() -> usize {
     let mut b = 107_900;
     let c = 124_900;
     let mut h = 0;
-    let primes = primes_up_to(c).iter().cloned().collect::<HashSet<usize>>();
+    let primes = primes_up_to(c);
 
     while b <= c {
         if !primes.contains(&b) {
