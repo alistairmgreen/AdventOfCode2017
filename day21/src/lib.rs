@@ -3,6 +3,12 @@ extern crate failure;
 use std::str::FromStr;
 use failure::Error;
 use std::fmt;
+use std::collections::HashMap;
+
+fn isqrt(n: usize) -> usize {
+    let root = (n as f32).sqrt();
+    root.floor() as usize
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Pixel {
@@ -40,19 +46,23 @@ pub struct Grid {
     size: usize,
 }
 
-// impl<'a> Index<usize> for &'a Grid {
-//     type Output = &'a [Pixel];
-
-//     fn index(&'a self, index: usize) -> &'a [Pixel] {
-//         let start = index * self.size;
-//         let end = start + self.size;
-//         let x = self.elements[start..end];
-
-//         &x;
-//     }
-// }
-
 impl Grid {
+    pub fn starting_pattern() -> Grid {
+        Grid {
+            elements: vec![
+                Pixel::Off,
+                Pixel::On,
+                Pixel::Off,
+                Pixel::Off,
+                Pixel::Off,
+                Pixel::On,
+                Pixel::On,
+                Pixel::On,
+                Pixel::On,
+            ],
+            size: 3,
+        }
+    }
     fn row(&self, index: usize) -> &[Pixel] {
         let row_start = index * self.size;
         &self.elements[row_start..row_start + self.size]
@@ -88,10 +98,11 @@ impl Grid {
 
     fn compose(pieces: &[Grid]) -> Grid {
         let piece_size = pieces[0].size;
-        let size = piece_size * piece_size;
+        let pieces_per_side = isqrt(pieces.len());
+        let size = piece_size * pieces_per_side;
         let mut elements: Vec<Pixel> = Vec::with_capacity(size * size);
 
-        for row_pieces in pieces.chunks(piece_size) {
+        for row_pieces in pieces.chunks(pieces_per_side) {
             for row in 0..piece_size {
                 for piece in row_pieces {
                     elements.extend_from_slice(piece.row(row));
@@ -101,7 +112,7 @@ impl Grid {
 
         Grid {
             elements: elements,
-            size: size
+            size: size,
         }
     }
 
@@ -113,7 +124,7 @@ impl Grid {
 
         Grid {
             elements: elements,
-            size: self.size
+            size: self.size,
         }
     }
 
@@ -126,7 +137,22 @@ impl Grid {
 
         Grid {
             elements: elements,
-            size: self.size
+            size: self.size,
+        }
+    }
+
+    fn rotate(&self) -> Grid {
+        let mut elements: Vec<Pixel> = Vec::with_capacity(self.elements.len());
+
+        for column in 0..self.size {
+            for row in (0..self.size).rev() {
+                elements.push(self.elements[row * self.size + column]);
+            }
+        }
+
+        Grid {
+            elements: elements,
+            size: self.size,
         }
     }
 }
@@ -171,6 +197,43 @@ impl fmt::Display for Grid {
     }
 }
 
+pub fn read_rules<'a, T: Iterator<Item = &'a str>>(rules: T) -> Result<HashMap<Grid, Grid>, Error> {
+    let mut table = HashMap::new();
+
+    for rule_string in rules {
+        let parts: Vec<&str> = rule_string.split("=>").collect();
+        if parts.len() != 2 {
+            bail!("Cannot parse rule: '{}'", rule_string);
+        }
+        let small: Grid = parts[0].trim().parse()?;
+        let large: Grid = parts[1].trim().parse()?;
+
+        table.insert(small.flip_horizontal(), large.clone());
+        table.insert(small.flip_vertical(), large.clone());
+
+        let rotated90 = small.rotate();
+        let rotated180 = rotated90.rotate();
+        let rotated270 = rotated180.rotate();
+
+        table.insert(rotated90, large.clone());
+        table.insert(rotated180, large.clone());
+        table.insert(rotated270, large.clone());
+        table.insert(small, large);
+    }
+
+    Ok(table)
+}
+
+pub fn enhance(grid: &Grid, rules: &HashMap<Grid, Grid>) -> Grid {
+    let enhanced_parts: Vec<Grid> = grid.partition()
+        .iter()
+        .map(|piece| rules.get(piece).expect("Could not find enhancement rule."))
+        .cloned()
+        .collect();
+
+    Grid::compose(&enhanced_parts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,8 +252,14 @@ mod tests {
     fn get_row_from_grid() {
         let grid = Grid::from_str("#..#/..../..../#..#").unwrap();
         assert_eq!(grid.row(0), &[Pixel::On, Pixel::Off, Pixel::Off, Pixel::On]);
-        assert_eq!(grid.row(1), &[Pixel::Off, Pixel::Off, Pixel::Off, Pixel::Off]);
-        assert_eq!(grid.row(2), &[Pixel::Off, Pixel::Off, Pixel::Off, Pixel::Off]);
+        assert_eq!(
+            grid.row(1),
+            &[Pixel::Off, Pixel::Off, Pixel::Off, Pixel::Off]
+        );
+        assert_eq!(
+            grid.row(2),
+            &[Pixel::Off, Pixel::Off, Pixel::Off, Pixel::Off]
+        );
         assert_eq!(grid.row(3), &[Pixel::On, Pixel::Off, Pixel::Off, Pixel::On]);
     }
 
@@ -234,6 +303,24 @@ mod tests {
     }
 
     #[test]
+    fn compose_single_grid() {
+        let original = vec![Grid::from_str("#./..").unwrap()];
+        let composed = Grid::compose(&original);
+        assert_eq!(composed, original[0]);
+    }
+
+    #[test]
+    fn compose_four_3x3_grids() {
+        let unit = Grid::from_str("##./#../...").unwrap();
+        let parts = vec![unit; 4];
+        let composed = Grid::compose(&parts);
+        let expected = Grid::from_str(
+            "##.##./#..#../....../##.##./#..#../......").unwrap();
+        
+        assert_eq!(composed, expected);
+    }
+
+    #[test]
     fn flip_grid_vertically() {
         let original = Grid::from_str("##/..").unwrap();
         let flipped = original.flip_vertical();
@@ -247,5 +334,35 @@ mod tests {
         let flipped = original.flip_horizontal();
         assert_eq!(flipped, Grid::from_str("#./.#").unwrap());
         assert_eq!(original, flipped.flip_horizontal());
+    }
+
+    #[test]
+    fn rotate_grid() {
+        let original = Grid::from_str(".#./..#/###").unwrap();
+        let rotated = original.rotate();
+        assert_eq!(rotated, Grid::from_str("#../#.#/##.").unwrap());
+    }
+
+    #[test]
+    fn part_1_example() {
+        let input_rules = "../.# => ##./#../...
+.#./..#/### => #..#/..../..../#..#";
+        let rules = read_rules(input_rules.lines()).unwrap();
+        let grid = Grid::starting_pattern();
+
+        let step1 = enhance(&grid, &rules);
+        assert_eq!(
+            step1,
+            Grid::from_str("#..#/..../..../#..#").unwrap(),
+            "Step 1 is incorrect"
+        );
+
+        let step2 = enhance(&step1, &rules);
+
+        assert_eq!(
+            step2,
+            Grid::from_str("##.##./#..#../....../##.##./#..#../......").unwrap(),
+            "Step 2 is incorrect"
+        );
     }
 }
