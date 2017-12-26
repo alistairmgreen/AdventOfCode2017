@@ -63,6 +63,14 @@ impl Grid {
             size: 3,
         }
     }
+
+    pub fn count_pixels_on(&self) -> usize {
+        self.elements
+            .iter()
+            .filter(|&&pixel| pixel == Pixel::On)
+            .count()
+    }
+
     fn row(&self, index: usize) -> &[Pixel] {
         let row_start = index * self.size;
         &self.elements[row_start..row_start + self.size]
@@ -205,29 +213,42 @@ pub fn read_rules<'a, T: Iterator<Item = &'a str>>(rules: T) -> Result<HashMap<G
         if parts.len() != 2 {
             bail!("Cannot parse rule: '{}'", rule_string);
         }
+        
         let small: Grid = parts[0].trim().parse()?;
         let large: Grid = parts[1].trim().parse()?;
 
-        table.insert(small.flip_horizontal(), large.clone());
-        table.insert(small.flip_vertical(), large.clone());
+        add_rotations(&small, &large, &mut table);
 
-        let rotated90 = small.rotate();
-        let rotated180 = rotated90.rotate();
-        let rotated270 = rotated180.rotate();
+        let flip_ud = small.flip_vertical();
+        add_rotations(&flip_ud, &large, &mut table);
+        table.insert(flip_ud, large.clone());
 
-        table.insert(rotated90, large.clone());
-        table.insert(rotated180, large.clone());
-        table.insert(rotated270, large.clone());
+        let flip_lr = small.flip_horizontal();
+        add_rotations(&flip_lr, &large, &mut table);
+
         table.insert(small, large);
     }
 
     Ok(table)
 }
 
+fn add_rotations(pattern: &Grid, enhanced: &Grid, rules: &mut HashMap<Grid, Grid>) {
+    let rotated90 = pattern.rotate();
+    let rotated180 = rotated90.rotate();
+    let rotated270 = rotated180.rotate();
+    rules.insert(rotated90, enhanced.clone());
+    rules.insert(rotated180, enhanced.clone());
+    rules.insert(rotated270, enhanced.clone());
+}
+
 pub fn enhance(grid: &Grid, rules: &HashMap<Grid, Grid>) -> Grid {
     let enhanced_parts: Vec<Grid> = grid.partition()
         .iter()
-        .map(|piece| rules.get(piece).expect("Could not find enhancement rule."))
+        .map(|piece| {
+            rules
+                .get(piece)
+                .expect(&format!("Could not find enhancement rule for:\n{}", piece))
+        })
         .cloned()
         .collect();
 
@@ -314,9 +335,8 @@ mod tests {
         let unit = Grid::from_str("##./#../...").unwrap();
         let parts = vec![unit; 4];
         let composed = Grid::compose(&parts);
-        let expected = Grid::from_str(
-            "##.##./#..#../....../##.##./#..#../......").unwrap();
-        
+        let expected = Grid::from_str("##.##./#..#../....../##.##./#..#../......").unwrap();
+
         assert_eq!(composed, expected);
     }
 
@@ -364,5 +384,7 @@ mod tests {
             Grid::from_str("##.##./#..#../....../##.##./#..#../......").unwrap(),
             "Step 2 is incorrect"
         );
+
+        assert_eq!(step2.count_pixels_on(), 12);
     }
 }
