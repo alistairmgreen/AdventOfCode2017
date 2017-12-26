@@ -213,7 +213,7 @@ pub fn read_rules<'a, T: Iterator<Item = &'a str>>(rules: T) -> Result<HashMap<G
         if parts.len() != 2 {
             bail!("Cannot parse rule: '{}'", rule_string);
         }
-        
+
         let small: Grid = parts[0].trim().parse()?;
         let large: Grid = parts[1].trim().parse()?;
 
@@ -241,7 +241,10 @@ fn add_rotations(pattern: &Grid, enhanced: &Grid, rules: &mut HashMap<Grid, Grid
     rules.insert(rotated270, enhanced.clone());
 }
 
-pub fn enhance(grid: &Grid, rules: &HashMap<Grid, Grid>) -> Grid {
+pub fn enhance<S>(grid: &Grid, rules: &HashMap<Grid, Grid, S>) -> Grid
+where
+    S: ::std::hash::BuildHasher,
+{
     let enhanced_parts: Vec<Grid> = grid.partition()
         .iter()
         .map(|piece| {

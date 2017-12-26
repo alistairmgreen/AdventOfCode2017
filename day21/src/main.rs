@@ -23,6 +23,12 @@ fn run() -> Result<(), Error> {
 
     println!("After 5 iterations, {} pixels are on.", grid.count_pixels_on());
 
+    for _ in 6..19 {
+        grid = enhance(&grid, &rules);
+    }
+
+    println!("After 18 iterations, {} pixels are on.", grid.count_pixels_on());    
+
     Ok(())
 }
 
